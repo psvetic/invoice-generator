@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Generator (Standalone)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .instructions {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .instructions h2 {
+            margin-top: 0;
+            font-size: 18px;
+        }
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Invoice Generator</h1>
+    <form id="invoiceForm">
+        <div class="form-group">
+            <label for="invoiceNumber">Invoice Number:</label>
+            <input type="number" id="invoiceNumber" name="invoiceNumber" required>
+        </div>
+        <button type="submit">Generate PDF Invoice</button>
+    </form>
+
+    <div class="instructions">
+        <h2>How to Use:</h2>
+        <p>1. Enter an invoice number in the field above</p>
+        <p>2. Click "Generate PDF Invoice"</p>
+        <p>3. A server-side script will generate the PDF</p>
+        <p>4. The PDF will be saved in the uploads directory</p>
+        
+        <h2>Generate from the command line:</h2>
+        <p>You can also generate invoices directly from the command line:</p>
+        <pre>node dist/generate-pdf.js [invoice-number]</pre>
+        <p>For example:</p>
+        <pre>node dist/generate-pdf.js 12345</pre>
+        <p>This will generate a PDF at: uploads/invoice-12345.pdf</p>
+    </div>
+
+    <script>
+        document.getElementById('invoiceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const invoiceNumber = document.getElementById('invoiceNumber').value;
+            
+            if (!invoiceNumber) {
+                alert('Please enter an invoice number');
+                return;
+            }
+            
+            alert(`To generate invoice #${invoiceNumber}, run this command:\n\nnode dist/generate-pdf.js ${invoiceNumber}\n\nThis will save the PDF to uploads/invoice-${invoiceNumber}.pdf`);
+        });
+    </script>
+</body>
+</html>
