@@ -1,30 +1,45 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
+import * as PDFKit from 'pdfkit';
 
 @Injectable()
 export class InvoicesService {
   async generateInvoicePdf(invoiceNumber: number): Promise<Buffer> {
-    return new Promise((resolve) => {
-      // Create a new PDF document
-      const doc = new PDFDocument({ margin: 50 });
-      const buffers: Buffer[] = [];
+    return new Promise((resolve, reject) => {
+      try {
+        // Create a new PDF document
+        const doc = new PDFDocument({ margin: 50 });
+        const buffers: Buffer[] = [];
 
-      // Handle document creation
-      doc.on('data', (buffer: Buffer) => buffers.push(buffer));
-      doc.on('end', () => {
-        const pdfData = Buffer.concat(buffers);
-        resolve(pdfData);
-      });
+        // Handle document creation
+        doc.on('data', (buffer: Buffer) => buffers.push(buffer));
+        doc.on('end', () => {
+          const pdfData = Buffer.concat(buffers);
+          resolve(pdfData);
+        });
+        doc.on('error', (err: Error) => {
+          reject(new Error(`PDF generation error: ${err.message}`));
+        });
 
-      // Create the invoice
-      this.generateInvoiceContent(doc, invoiceNumber);
+        // Create the invoice
+        this.generateInvoiceContent(doc, invoiceNumber);
 
-      // Finalize the PDF
-      doc.end();
+        // Finalize the PDF
+        doc.end();
+      } catch (error) {
+        reject(
+          new Error(
+            `Failed to generate PDF: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+      }
     });
   }
 
-  private generateInvoiceContent(doc: PDFKit.PDFDocument, invoiceNumber: number) {
+  private generateInvoiceContent(
+    doc: any,
+    invoiceNumber: number,
+  ) {
     // Add document title
     doc
       .font('Helvetica-Bold')
@@ -87,8 +102,20 @@ export class InvoicesService {
 
     // Sample data rows
     const items = [
-      { item: 1, description: 'Service 1', quantity: 1, price: 100, amount: 100 },
-      { item: 2, description: 'Service 2', quantity: 2, price: 50, amount: 100 },
+      {
+        item: 1,
+        description: 'Service 1',
+        quantity: 1,
+        price: 100,
+        amount: 100,
+      },
+      {
+        item: 2,
+        description: 'Service 2',
+        quantity: 2,
+        price: 50,
+        amount: 100,
+      },
       { item: 3, description: 'Service 3', quantity: 1, price: 75, amount: 75 },
     ];
 

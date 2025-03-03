@@ -1,29 +1,44 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
+import * as PDFKit from 'pdfkit';
 
 const generateInvoicePdf = (invoiceNumber: number): Promise<Buffer> => {
-  return new Promise((resolve) => {
-    // Create a new PDF document
-    const doc = new PDFDocument({ margin: 50 });
-    const buffers: Buffer[] = [];
+  return new Promise((resolve, reject) => {
+    try {
+      // Create a new PDF document
+      const doc = new PDFDocument({ margin: 50 });
+      const buffers: Buffer[] = [];
 
-    // Handle document creation
-    doc.on('data', (buffer: Buffer) => buffers.push(buffer));
-    doc.on('end', () => {
-      const pdfData = Buffer.concat(buffers);
-      resolve(pdfData);
-    });
+      // Handle document creation
+      doc.on('data', (buffer: Buffer) => buffers.push(buffer));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+      doc.on('error', (err: Error) => {
+        reject(new Error(`PDF generation error: ${err.message}`));
+      });
 
-    // Create the invoice
-    generateInvoiceContent(doc, invoiceNumber);
+      // Create the invoice
+      generateInvoiceContent(doc, invoiceNumber);
 
-    // Finalize the PDF
-    doc.end();
+      // Finalize the PDF
+      doc.end();
+    } catch (error) {
+      reject(
+        new Error(
+          `Failed to generate PDF: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
+    }
   });
 };
 
-const generateInvoiceContent = (doc: PDFKit.PDFDocument, invoiceNumber: number) => {
+const generateInvoiceContent = (
+  doc: any,
+  invoiceNumber: number,
+) => {
   // Add document title
   doc
     .font('Helvetica-Bold')
@@ -133,33 +148,59 @@ const generateInvoiceContent = (doc: PDFKit.PDFDocument, invoiceNumber: number) 
 // Command line script to generate an invoice
 const run = async () => {
   try {
-    const invoiceNumber = process.argv[2] ? parseInt(process.argv[2], 10) : 1001;
-    
+    const invoiceNumber = process.argv[2]
+      ? parseInt(process.argv[2], 10)
+      : 1001;
+
     if (isNaN(invoiceNumber)) {
-      console.error('Please provide a valid invoice number as a command line argument');
-      process.exit(1);
+      console.error(
+        'Please provide a valid invoice number as a command line argument',
+      );
+      return 1; // Return exit code instead of calling process.exit() directly
     }
-    
+
     console.log(`Generating invoice #${invoiceNumber}...`);
     const pdfBuffer = await generateInvoicePdf(invoiceNumber);
-    
+
     // Make sure the uploads directory exists
     const uploadsDir = path.join(__dirname, '..', 'uploads');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
-    
-    // Write the PDF to a file
-    const filePath = path.join(uploadsDir, `invoice-${invoiceNumber}.pdf`);
-    fs.writeFileSync(filePath, pdfBuffer);
-    
-    console.log(`PDF invoice created successfully at ${filePath}`);
+
+    try {
+      // Write the PDF to a file
+      const filePath = path.join(uploadsDir, `invoice-${invoiceNumber}.pdf`);
+      fs.writeFileSync(filePath, pdfBuffer);
+
+      console.log(`PDF invoice created successfully at ${filePath}`);
+      return 0; // Success exit code
+    } catch (fileError) {
+      console.error(
+        'Error writing PDF file:',
+        fileError instanceof Error ? fileError.message : String(fileError),
+      );
+      return 1;
+    }
   } catch (error) {
-    console.error('Error generating PDF:', error);
+    console.error(
+      'Error generating PDF:',
+      error instanceof Error ? error.message : String(error),
+    );
+    return 1;
   }
 };
 
 // Run the script if it's called directly
 if (require.main === module) {
-  run();
+  run()
+    .then((exitCode) => {
+      if (exitCode !== 0) {
+        process.exit(exitCode);
+      }
+    })
+    .catch((err) => {
+      console.error('Unexpected error:', err);
+      process.exit(1);
+    });
 }

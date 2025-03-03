@@ -9,6 +9,6 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  await app.listen(process.env.PORT ?? 3002);
+  await app.listen(process.env.PORT ?? 3005);
 }
-bootstrap();
+void bootstrap();
