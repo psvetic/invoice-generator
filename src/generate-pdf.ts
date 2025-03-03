@@ -3,6 +3,34 @@ import * as path from 'path';
 import PDFDocument from 'pdfkit';
 import * as PDFKit from 'pdfkit';
 
+// Define invoice data structures
+interface InvoiceItem {
+  item: number;
+  description: string;
+  quantity: number;
+  price: number;
+  amount: number;
+}
+
+interface Invoice {
+  invoiceNumber: number;
+  createdAt: string;
+  companyDetails: {
+    name: string;
+    address: string;
+    city: string;
+    email: string;
+    phone: string;
+  };
+  clientDetails: {
+    name: string;
+    address: string;
+    city: string;
+  };
+  items: InvoiceItem[];
+  total: number;
+}
+
 const generateInvoicePdf = (invoiceNumber: number): Promise<Buffer> => {
   return new Promise((resolve, reject) => {
     try {
@@ -145,6 +173,64 @@ const generateInvoiceContent = (
     });
 };
 
+// Function to save invoice data as JSON
+const saveInvoiceData = (invoice: Invoice): void => {
+  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  const invoicesJsonPath = path.join(uploadsDir, 'invoices.json');
+
+  try {
+    // Read existing invoices data or create a new object
+    let invoices: Record<number, Invoice> = {};
+    if (fs.existsSync(invoicesJsonPath)) {
+      const data = fs.readFileSync(invoicesJsonPath, 'utf8');
+      invoices = JSON.parse(data);
+    }
+
+    // Add or update the invoice
+    invoices[invoice.invoiceNumber] = invoice;
+
+    // Write the updated data back to the file
+    fs.writeFileSync(invoicesJsonPath, JSON.stringify(invoices, null, 2), 'utf8');
+    console.log(`Invoice data saved to ${invoicesJsonPath}`);
+  } catch (error) {
+    console.error(
+      'Error saving invoice data:',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+};
+
+// Function to create invoice data
+const createInvoiceData = (invoiceNumber: number): Invoice => {
+  // Sample data
+  const items: InvoiceItem[] = [
+    { item: 1, description: 'Service 1', quantity: 1, price: 100, amount: 100 },
+    { item: 2, description: 'Service 2', quantity: 2, price: 50, amount: 100 },
+    { item: 3, description: 'Service 3', quantity: 1, price: 75, amount: 75 },
+  ];
+
+  const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+  return {
+    invoiceNumber,
+    createdAt: new Date().toISOString(),
+    companyDetails: {
+      name: 'Company Name',
+      address: '123 Business Street',
+      city: 'Business City, 12345',
+      email: 'contact@company.com',
+      phone: '(123) 456-7890',
+    },
+    clientDetails: {
+      name: 'Client Name',
+      address: '456 Client Street',
+      city: 'Client City, 54321',
+    },
+    items,
+    total,
+  };
+};
+
 // Command line script to generate an invoice
 const run = async () => {
   try {
@@ -160,6 +246,11 @@ const run = async () => {
     }
 
     console.log(`Generating invoice #${invoiceNumber}...`);
+    
+    // Create and save invoice data
+    const invoiceData = createInvoiceData(invoiceNumber);
+    
+    // Generate PDF
     const pdfBuffer = await generateInvoicePdf(invoiceNumber);
 
     // Make sure the uploads directory exists
@@ -172,6 +263,9 @@ const run = async () => {
       // Write the PDF to a file
       const filePath = path.join(uploadsDir, `invoice-${invoiceNumber}.pdf`);
       fs.writeFileSync(filePath, pdfBuffer);
+      
+      // Save invoice data as JSON
+      saveInvoiceData(invoiceData);
 
       console.log(`PDF invoice created successfully at ${filePath}`);
       return 0; // Success exit code

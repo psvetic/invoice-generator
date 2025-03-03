@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import * as PDFKit from 'pdfkit';
+import { Invoice, InvoiceItem } from './models/invoice.model';
+import { StorageService } from './services/storage.service';
+import { CreateInvoiceDto } from './dto/create-invoice.dto';
 
 @Injectable()
 export class InvoicesService {
+  constructor(private readonly storageService: StorageService) {}
+
   async generateInvoicePdf(invoiceNumber: number): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       try {
@@ -36,10 +41,97 @@ export class InvoicesService {
     });
   }
 
+  // Create a new invoice from DTO
+  createInvoice(createInvoiceDto: CreateInvoiceDto): Invoice {
+    const total = createInvoiceDto.items.reduce((sum, item) => sum + item.amount, 0);
+    
+    const newInvoice: Invoice = {
+      ...createInvoiceDto,
+      createdAt: new Date().toISOString(),
+      total,
+    };
+    
+    // Save the invoice
+    this.storageService.saveInvoice(newInvoice);
+    return newInvoice;
+  }
+  
+  // Get or create an invoice object
+  getOrCreateInvoice(invoiceNumber: number): Invoice {
+    // Check if the invoice already exists
+    const existingInvoice = this.storageService.getInvoice(invoiceNumber);
+    if (existingInvoice) {
+      return existingInvoice;
+    }
+
+    // Sample data for a new invoice
+    const items: InvoiceItem[] = [
+      {
+        item: 1,
+        description: 'Service 1',
+        quantity: 1,
+        price: 100,
+        amount: 100,
+      },
+      {
+        item: 2,
+        description: 'Service 2',
+        quantity: 2,
+        price: 50,
+        amount: 100,
+      },
+      { item: 3, description: 'Service 3', quantity: 1, price: 75, amount: 75 },
+    ];
+
+    const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+    // Create a new invoice
+    const newInvoice: Invoice = {
+      invoiceNumber,
+      createdAt: new Date().toISOString(),
+      companyDetails: {
+        name: 'Company Name',
+        address: '123 Business Street',
+        city: 'Business City, 12345',
+        email: 'contact@company.com',
+        phone: '(123) 456-7890',
+      },
+      clientDetails: {
+        name: 'Client Name',
+        address: '456 Client Street',
+        city: 'Client City, 54321',
+      },
+      items,
+      total,
+    };
+
+    // Save the invoice
+    this.storageService.saveInvoice(newInvoice);
+    return newInvoice;
+  }
+
+  // Get all invoices
+  getAllInvoices(): Invoice[] {
+    return this.storageService.getAllInvoices();
+  }
+
+  // Get a specific invoice
+  getInvoice(invoiceNumber: number): Invoice | null {
+    return this.storageService.getInvoice(invoiceNumber);
+  }
+
+  // Delete an invoice
+  deleteInvoice(invoiceNumber: number): boolean {
+    return this.storageService.deleteInvoice(invoiceNumber);
+  }
+
   private generateInvoiceContent(
     doc: any,
     invoiceNumber: number,
   ) {
+    // Get or create invoice data
+    const invoice = this.getOrCreateInvoice(invoiceNumber);
+    
     // Add document title
     doc
       .font('Helvetica-Bold')
@@ -48,22 +140,23 @@ export class InvoicesService {
       .moveDown();
 
     // Add invoice number and date
+    const createdDate = new Date(invoice.createdAt).toLocaleDateString();
     doc
       .font('Helvetica')
       .fontSize(12)
-      .text(`Invoice Number: ${invoiceNumber}`, { align: 'left' })
-      .text(`Date: ${new Date().toLocaleDateString()}`, { align: 'left' })
+      .text(`Invoice Number: ${invoice.invoiceNumber}`, { align: 'left' })
+      .text(`Date: ${createdDate}`, { align: 'left' })
       .moveDown(2);
 
     // Company details
     doc
       .font('Helvetica-Bold')
-      .text('Company Name', { align: 'left' })
+      .text(invoice.companyDetails.name, { align: 'left' })
       .font('Helvetica')
-      .text('123 Business Street')
-      .text('Business City, 12345')
-      .text('Email: contact@company.com')
-      .text('Phone: (123) 456-7890')
+      .text(invoice.companyDetails.address)
+      .text(invoice.companyDetails.city)
+      .text(`Email: ${invoice.companyDetails.email}`)
+      .text(`Phone: ${invoice.companyDetails.phone}`)
       .moveDown(2);
 
     // Client details
@@ -71,9 +164,9 @@ export class InvoicesService {
       .font('Helvetica-Bold')
       .text('Billed To:', { align: 'left' })
       .font('Helvetica')
-      .text('Client Name')
-      .text('456 Client Street')
-      .text('Client City, 54321')
+      .text(invoice.clientDetails.name)
+      .text(invoice.clientDetails.address)
+      .text(invoice.clientDetails.city)
       .moveDown(2);
 
     // Table headers
@@ -100,29 +193,10 @@ export class InvoicesService {
       .lineTo(startX + 500, doc.y)
       .stroke();
 
-    // Sample data rows
-    const items = [
-      {
-        item: 1,
-        description: 'Service 1',
-        quantity: 1,
-        price: 100,
-        amount: 100,
-      },
-      {
-        item: 2,
-        description: 'Service 2',
-        quantity: 2,
-        price: 50,
-        amount: 100,
-      },
-      { item: 3, description: 'Service 3', quantity: 1, price: 75, amount: 75 },
-    ];
-
     let currentY = doc.y;
     const lineHeight = 20;
 
-    items.forEach((item) => {
+    invoice.items.forEach((item) => {
       currentY += lineHeight;
 
       doc
@@ -142,12 +216,11 @@ export class InvoicesService {
       .stroke();
 
     // Total amount
-    const total = items.reduce((sum, item) => sum + item.amount, 0);
     currentY += lineHeight;
     doc
       .font('Helvetica-Bold')
       .text('Total:', priceX, currentY)
-      .text(`$${total.toFixed(2)}`, amountX, currentY);
+      .text(`$${invoice.total.toFixed(2)}`, amountX, currentY);
 
     // Footer
     doc
